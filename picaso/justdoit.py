@@ -50,7 +50,7 @@ if not os.path.exists(__refdata__):
 else: 
     ref_v = json.load(open(os.path.join(__refdata__,'config.json'))).get('version',2.3)
     
-    if __version__ != str(ref_v): 
+    if __version__ != str(ref_v):
         warnings.warn(f"Your code version is {__version__} but your reference data version is {ref_v}. For some functionality you may experience Keyword errors. Please download the newest ref version or update your code: https://github.com/natashabatalha/picaso/tree/master/reference")
 
 
@@ -1519,6 +1519,7 @@ class inputs():
 
     def star(self, opannection,temp=None, metal=None, logg=None ,radius = None, radius_unit=None,
         semi_major=None, semi_major_unit = None, #deq = False, 
+        fspot = None, tspot = None, loggspot = None,
         database='ck04models',filename=None, w_unit=None, f_unit=None):
         """
         Get the stellar spectrum using pysynphot and interpolate onto a much finer grid than the 
@@ -1621,6 +1622,22 @@ class inputs():
             sp.convert('flam') 
             wno_star = 1e4/sp.wave[::-1] # cm-1 #convert to wave number and flip
             flux_star = sp.flux[::-1]*1e8    #flip here and convert to ergs/cm3/s to get correct order
+
+            #Calculate dilution due to surface inhomogeneities (spots, faculae, etc.)
+            if (fspot is not None) & (tspot is not None):
+                flux_spot = []
+                for inhomogeneity in range(np.atleast_1d(fspot).shape[0]):
+                    if loggspot is None:
+                        stsp = psyn.Icat(database, np.atleast_1d(tspot)[inhomogeneity], metal, logg)
+                    else:
+                        stsp = psyn.Icat(database, np.atleast_1d(tspot)[inhomogeneity], metal, np.atleast_1d(loggspot)[inhomogeneity])
+                    stsp.convert("um")
+                    stsp.convert('flam') 
+                    flux_spot.append( stsp.flux[::-1]*1e8 )   #flip here and convert to ergs/cm3/s to get correct order
+                flux_spot = np.array(flux_spot)
+                # See Equation 2 here: https://arxiv.org/pdf/2302.04574
+                flux_star = (1 - np.sum(fspot)) * (sp.flux[::-1]*1e8) + np.sum(np.atleast_2d(fspot).T*flux_spot,axis=0)
+            epsilon = 1
         else: 
             raise Exception("Must enter 1) filename,w_unit & f_unit OR 2)temp, metal & logg ")
 
@@ -1682,6 +1699,20 @@ class inputs():
             #replace no bins with interpolated values 
             bin_flux_star[idx_nobins] = flux_star_interp[idx_nobins]
             opannection.unshifted_stellar_spec =bin_flux_star
+            #For spot
+            if (fspot is not None) & (tspot is not None):
+                flux_nospotstar_interp = np.interp(wno_planet, wno_star, sp.flux[::-1]*1e8)
+                _x,bin_flux_nospotstar = mean_regrid(wno_star, sp.flux[::-1]*1e8,newx=wno_planet)
+                #where the star wasn't high enough resolution  
+                idx_nobins = np.where(np.isnan(bin_flux_nospotstar))[0]
+                #replace no bins with interpolated values 
+                bin_flux_nospotstar[idx_nobins] = flux_nospotstar_interp[idx_nobins]
+                # See Equation 3 here: https://arxiv.org/pdf/1711.05691, basically epsilon == normal stellar flux / stellar flux with inhomogeneities
+                epsilon = bin_flux_nospotstar / flux_star_interp
+                # epsilon = 1 / ( 1 - np.sum( np.atleast_2d(fspot).T*( 1-flux_spot/(sp.flux[::-1]*1e8) ) ,axis=0) )
+            else:
+                epsilon = 1                
+
 
         self.inputs['star']['database'] = database
         self.inputs['star']['temp'] = temp
@@ -1691,6 +1722,7 @@ class inputs():
         self.inputs['star']['radius_unit'] = radius_unit 
         self.inputs['star']['flux'] = bin_flux_star
         self.inputs['star']['flux_unit'] = 'ergs cm^{-2} s^{-1} cm^{-1}'
+        self.inputs['star']['epsilon'] = epsilon
         self.inputs['star']['wno'] = wno_planet
         self.inputs['star']['semi_major'] = semi_major 
         self.inputs['star']['semi_major_unit'] = semi_major_unit    
@@ -4173,7 +4205,7 @@ def load_planet(df, opacity, phase_angle = 0, stellar_db='ck04models', verbose=F
             if verbose: print ('Stellar M/H exceeded min value of -4.0 . Value has been reset to the mininum')
             logmh = -4.0 
 
-        if logg > 4.5: 
+        if (logg > 4.5) & (stellar_db == 'ck04models'): 
             if verbose: print ('Stellar logg exceeded max value of 4.5. Value has been reset to the maximum')
             logg = 4.5   
 
