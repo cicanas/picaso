@@ -3,8 +3,8 @@ import pandas as pd
 import xarray as xr
 import scipy as sp
 from scipy.interpolate import griddata
-cKDTree = sp.spatial.cKDTree
-optimize = sp.optimize
+from scipy import optimize
+from scipy.spatial import cKDTree
 
 import json
 import matplotlib.pyplot as plt
@@ -153,8 +153,8 @@ class GridFitter():
         None 
             Creates self.overview, and self.grid_params
         """
-        possible_params = {'planet_params': ['rp','mp','tint', 'heat_redis','p_reference','logkzz','mh','cto','p_quench','rainout','teff','logg','m_length'],
-                           'stellar_params' : ['rs','logg','steff','feh','ms'],
+        possible_params = {'planet_params': ['rp','mp','tint', 'heat_redis','p_reference','logkzz','mh','co','p_quench','rainout','teff','logg','m_length'],
+                           'stellar_params' : ['rs','logg','steff','feh','ms','fspot','tspot'],
                            'cld_params': ['opd','ssa','asy','p_cloud','haze_eff','fsed']}
 
         #define possible grid parameters
