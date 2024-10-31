@@ -13,6 +13,7 @@ from astropy.convolution import convolve, Box1DKernel, Gaussian1DKernel
 import astropy.units as u
 import glob
 import itertools
+from matplotlib.colors import to_rgba as rgb
 
 from matplotlib.ticker import StrMethodFormatter
 
@@ -153,7 +154,7 @@ class GridFitter():
         None 
             Creates self.overview, and self.grid_params
         """
-        possible_params = {'planet_params': ['rp','mp','tint', 'heat_redis','p_reference','logkzz','mh','co','p_quench','rainout','teff','logg','m_length'],
+        possible_params = {'planet_params': ['rp','mp','tint', 'heat_redis','p_reference','logkzz','mh','co','p_quench','rainout','teff','logg','m_length','sratio'],
                            'stellar_params' : ['rs','logg','steff','feh','ms','fspot','tspot'],
                            'cld_params': ['opd','ssa','asy','p_cloud','haze_eff','fsed']}
 
@@ -258,7 +259,7 @@ class GridFitter():
             for j in self.data.keys() :
                 self.fit_grid(i, j)
 
-    def fit_grid(self,grid_name, data_name,dof='ndata', offset=True):
+    def fit_grid(self,grid_name, data_name,dof='ndata', offset=True, datalabels = None, minwl = None):
         """
         Fits grids given model and data. Retrieves posteriors of fit parameters.
 
@@ -311,12 +312,17 @@ class GridFitter():
 
         if offset: 
 
-            self.offsets =  getattr(self, 'offsets',{grid_name:{data_name:np.zeros(nmodels) }})
+            self.offsets =  getattr(self, 'offsets',{grid_name:{data_name:np.zeros((nmodels,len(wlgrid_center))) }})
             self.offsets[grid_name] = self.offsets.get(grid_name, {data_name:np.zeros(shape=(nmodels))})
-            self.offsets[grid_name][data_name] = self.offsets.get(data_name,np.zeros(shape=(nmodels)))
+            if datalabels is None:
+                self.offsets[grid_name][data_name] = self.offsets.get(data_name,np.zeros(shape=(nmodels)))
+            else:
+                self.offsets[grid_name][data_name] = self.offsets.get(data_name,np.zeros(shape=(nmodels, len(wlgrid_center))))
             #self.overview[grid_name]['num_params'] = self.overview[grid_name]['num_params'] + 1
 
         numparams = self.overview[grid_name]['num_params']
+        # if datalabels is not None:
+        #     numparams += np.unique(datalabels).shape[0]
 
         def shift_spectrum(waves,shift):
             return flux_in_bin+shift
@@ -325,16 +331,25 @@ class GridFitter():
         for index in range(nmodels):
             xw , flux_in_bin = mean_regrid(self.wavelength[grid_name],self.spectra[grid_name][index,:],newx= wlgrid_center)
 
-            if offset: 
-                popt, pcov = optimize.curve_fit(shift_spectrum, wlgrid_center, y_data,p0=[-0.001])
-                shift = popt[0]
+            if offset:
+                if datalabels is None:
+                    popt, pcov = optimize.curve_fit(shift_spectrum, wlgrid_center, y_data,p0=[-0.001])
+                    shift = popt[0]
+                else:
+                    def shift_spectrum(waves,shift1, shift2, shift3):
+                        return flux_in_bin+np.array([shift1,shift2,shift3])[np.unique(datalabels,return_inverse=True)[-1]]
+                    popt, pcov = optimize.curve_fit(shift_spectrum, wlgrid_center, y_data,p0=[-0.001]*np.unique(datalabels).shape[0])
+                    shift = np.array(popt)[np.unique(datalabels,return_inverse=True)[-1]]
             else: 
                 shift = 0 
-            if dof == 'ndata': numparams=0
+            if dof == 'ndata':
+                numparams=0
+            
             self.chi_sqs[grid_name][data_name][index]= chi_squared(y_data,e_data,flux_in_bin+shift,numparams)
 
             self.best_fits[grid_name][data_name][index,:] = flux_in_bin+shift
-            if offset: self.offsets[grid_name][data_name][index] = shift
+            if offset:
+                self.offsets[grid_name][data_name][index] = shift
 
         self.rank[grid_name][data_name] = self.chi_sqs[grid_name][data_name].argsort()
 
@@ -362,7 +377,7 @@ class GridFitter():
                 best_fits[ikey] = single_best_fit
         return best_fits
 
-    def plot_best_fit(self, grid_names, data_names, plot_kwargs={}): 
+    def plot_best_fit(self, grid_names, data_names, plot_kwargs={}, datalabels = None, multiplier = 1,fig = None, ptfile = None,linewidth = 1, only_data = None): 
         """
         
         Parameters
@@ -377,15 +392,26 @@ class GridFitter():
         if isinstance(grid_names ,str):grid_names=[grid_names]
         if isinstance(data_names ,str):data_names=[data_names]
 
-        x='''
-        AA
-        ..
-        BB
-        '''
-        fig = plt.figure(figsize=(18,10))
+        if ptfile is None:
+            x='''
+            AA
+            ..
+            BB
+            '''
+            figheights = [1,0.00001,0.2]
+            figwidths = [1,1]
+        else:           
+            x='''
+            AA.C
+            BB.C
+            '''
+            figheights = [1,0.2]
+            figwidths = [1,1,0.00001,0.5]
+        if fig is None:
+            fig = plt.figure(figsize=(18,10))
         plt.style.use('seaborn-v0_8-paper')
         plt.rcParams['figure.figsize'] = [7, 4]           # Figure dimensions
-        plt.rcParams['figure.dpi'] = 300
+        plt.rcParams['figure.dpi'] = 600
         plt.rcParams['image.aspect'] = 1.2                       # Aspect ratio (the CCD is quite long!!!)
         plt.rcParams['lines.linewidth'] = 1
         plt.rcParams['lines.markersize'] = 3
@@ -397,20 +423,21 @@ class GridFitter():
         plt.rcParams['image.cmap'] = 'magma'                   # Colormap.
         plt.rcParams['image.interpolation'] = 'None'
         plt.rcParams['image.origin'] = 'lower'
-        plt.rcParams['font.family'] = 'sans-serif'
-        plt.rcParams['font.serif'] = 'DejaVu Sans'
-        plt.rcParams['mathtext.fontset'] = 'stixsans'
+        # plt.rcParams['font.family'] = 'sans-serif'
+        # plt.rcParams['font.serif'] = 'DejaVu Sans'
+        # plt.rcParams['mathtext.fontset'] = 'stixsans'
         #plt.rcParams['axes.prop_cycle'] = \
         #plt.cycler(color=["tomato", "dodgerblue", "gold", 'forestgreen', 'mediumorchid', 'lightblue'])
-        plt.rcParams['figure.dpi'] = 300
-        colors=["xkcd:salmon", "dodgerblue", "sandybrown", 'cadetblue', 'orchid', 'lightblue']
-        plt.rcParams["axes.prop_cycle"] = plt.cycler(color=colors)        
+        plt.rcParams['figure.dpi'] = 600
+        colors=["xkcd:salmon", "dodgerblue", "sandybrown", 'cadetblue', 'orchid', 'lightblue', 'darkgreen', 'maroon']
+        linestyles = ['-','--','--','-.',(0, (3, 5, 1, 5)),(0, (3, 1, 1, 1)), (0, (5, 10)), (5, (10, 3))]
+        plt.rcParams["axes.prop_cycle"] = plt.cycler(color=colors) + plt.cycler(linestyle=linestyles)
 
         ax = fig.subplot_mosaic(x,gridspec_kw={
                 # set the height ratios between the rows
-                "height_ratios": [1,0.00001,0.2],
+                "height_ratios": figheights,
                 # set the width ratios between the columns
-                "width_ratios": [1,1]})
+                "width_ratios": figwidths})
 
 
         all_data_waves = np.concatenate([self.data[i]['wlgrid_center'] for i in self.data.keys()])
@@ -420,28 +447,58 @@ class GridFitter():
 
         #colors = ['tomato', 'dodgerblue','forestgreen','green','orchid','slateblue']
         ii=0
-        for igrid in grid_names:   
+        for igrid in grid_names:
             for idata in data_names: 
-                color = ax['A']._get_lines.get_next_color()
+
+                try:
+                    best_fit = multiplier*self.best_fits[igrid][idata][self.rank[igrid][idata],:][0,:]
+                except:
+                    print('No combmination for {} and {}'.format(igrid,idata))
+                    continue
+                # color = ax['A']._get_lines.get_next_color()
 
                 wlgrid_center = self.data[idata]['wlgrid_center']
-                y_data = 100*self.data[idata]['y_data']
-                e_data = 100*self.data[idata]['e_data']
-                best_fit = 100*self.best_fits[igrid][idata][self.rank[igrid][idata],:][0,:]
+                y_data = multiplier*self.data[idata]['y_data']
+                e_data = multiplier*self.data[idata]['e_data']
+                resids = (y_data-best_fit)/e_data
+                if datalabels is not None:
+                    offsets = multiplier*self.offsets[igrid][idata][self.rank[igrid][idata],:][0,:]
+                    best_fit -= offsets - offsets[0]
+                    y_data -= offsets - offsets[0]
                 chi1 = self.chi_sqs[igrid][idata][self.rank[igrid][idata]][0]
 
-                ax['A'].plot(wlgrid_center,best_fit,color,linewidth=2,label=r"Best Fit "+igrid+"+"+idata+", ${\chi}_{\\nu}$$^2$= "+ str(np.round(chi1,2)))
-
-                ax['B'].plot(wlgrid_center,(y_data-best_fit)/e_data,"o",color=color,markersize=5)
-                if ii==0:ax['B'].plot(wlgrid_center,0*y_data,"k")
+                ax['A'].plot(wlgrid_center,best_fit,linewidth=linewidth,label=igrid.split(';')[-1]+r", ${\chi}_{\nu}^{2}="+ r'{:0.3f}$'.format(chi1),zorder=1000 if (idata.split(';')[0] == only_data) else 0)
+                               
+                if datalabels is None:
+                    ax['B'].plot(wlgrid_center,resids,"o",markeredgecolor=rgb('k',1),markersize=12,linestyle='none',alpha=0.5)
+                else:
+                    colorlist = []
+                    for thislabel in np.unique(datalabels):
+                        cull = datalabels == thislabel
+                        color = ax['A']._get_lines.get_next_color()
+                        colorlist.append(color)
+                        ax['B'].errorbar(wlgrid_center[cull],resids[cull],marker="o",markeredgecolor=rgb('k',1),color=rgb(color,0.5),markersize=12,label = thislabel, linestyle='none')
+                        
+                if ii==0:
+                    ax['B'].plot(wlgrid_center,0*y_data,"k")
 
                 ii+=1
 
         for i,idata in enumerate(data_names):
             wlgrid_center = self.data[idata]['wlgrid_center']
-            y_data = 100*self.data[idata]['y_data']
-            e_data = 100*self.data[idata]['e_data']
-            ax['A'].errorbar(wlgrid_center,y_data,yerr=e_data,fmt="o",color=Cividis[7][i],label=idata+" Reduction",markersize=5)
+            y_data = multiplier*self.data[idata]['y_data']
+            e_data = multiplier*self.data[idata]['e_data']
+            if datalabels is None:
+                if only_data is not None:
+                    if (idata.split(';')[0] == only_data):
+                        ax['A'].errorbar(wlgrid_center,y_data,yerr=e_data,fmt="o",color=rgb('k',0.5),markersize=12,markeredgecolor=rgb('k',1),linestyle='none')
+                else:
+                    ax['A'].errorbar(wlgrid_center,y_data,yerr=e_data,fmt="o",color=rgb(Cividis[7][i],0.5),markersize=12,markeredgecolor=rgb('k',1),linestyle='none')
+            else:
+                for thisindex, thislabel in enumerate(np.unique(datalabels)):
+                    cull = datalabels == thislabel
+                    ax['A'].errorbar(wlgrid_center[cull],y_data[cull],yerr=e_data[cull],marker="o",color=rgb(colorlist[thisindex],0.5),markeredgecolor=rgb('k',1),label=thislabel,markersize=12,linestyle='none')
+
         
         ax['B'].set_xlabel(plot_kwargs.get('xlabel',r"wavelength [$\mu$m]"),fontsize=20)
         ax['A'].set_ylabel(plot_kwargs.get('ylabel',r"transit depth [%]"),fontsize=20)
@@ -458,12 +515,32 @@ class GridFitter():
         ax['B'].tick_params(axis='x',which='major',length =20, width=3,direction='in',labelsize=20)
         ax['B'].tick_params(axis='x',which='minor',length =10, width=2,direction='in',labelsize=20)
 
+        #Add tick marks
+        ax['B'].tick_params(direction="in", which='both',bottom = True, top = True, left = True, right = True)
+        ax['A'].tick_params(direction="in", which='both',bottom = True, top = True, left = True, right = True)
+
         
         ax['B'].set_ylabel("${\delta}/N$",fontsize=20)
         
             
         ax['A'].legend(fontsize=16)
-        
+
+        if ptfile is not None:
+            ax['C'].minorticks_on()
+            ax['C'].set_ylabel(plot_kwargs.get('ylabel',r"Pressure (bar)"),fontsize=20)
+            ax['C'].set_xlabel(plot_kwargs.get('xlabel',r"Temperature (K)"),fontsize=20)
+            ax['C'].tick_params(axis='y',which='major',length =20, width=3,direction='in',labelsize=20)
+            ax['C'].tick_params(axis='y',which='minor',length =10, width=2,direction='in',labelsize=20)
+            ax['C'].tick_params(axis='x',which='major',length =20, width=3,direction='in',labelsize=20)
+            ax['C'].tick_params(axis='x',which='minor',length =10, width=2,direction='in',labelsize=20)
+            ax['C'].tick_params(direction="in", which='both',bottom = True, top = True, left = True, right = True)
+            
+            # Plot PT
+            plt.gca().set_prop_cycle(None)
+            for thisfile in ptfile:
+                thismodel = xr.load_dataset(thisfile)
+                ax['C'].semilogy(thismodel['temperature'],thismodel['pressure'],lw=linewidth)
+
         
         return fig,ax
 
