@@ -259,7 +259,7 @@ class GridFitter():
             for j in self.data.keys() :
                 self.fit_grid(i, j)
 
-    def fit_grid(self,grid_name, data_name,dof='ndata', offset=True, datalabels = None, minwl = None):
+    def fit_grid(self,grid_name, data_name,dof='ndata', offset=True, datalabels = None, minwl = None, offsetwl = None, spectralref = None):
         """
         Fits grids given model and data. Retrieves posteriors of fit parameters.
 
@@ -331,7 +331,7 @@ class GridFitter():
         for index in range(nmodels):
             xw , flux_in_bin = mean_regrid(self.wavelength[grid_name],self.spectra[grid_name][index,:],newx= wlgrid_center)
 
-            if offset:
+            if offset & (offsetwl is None):
                 if datalabels is None:
                     popt, pcov = optimize.curve_fit(shift_spectrum, wlgrid_center, y_data,p0=[-0.001])
                     shift = popt[0]
@@ -340,6 +340,9 @@ class GridFitter():
                         return flux_in_bin+np.array([shift1,shift2,shift3])[np.unique(datalabels,return_inverse=True)[-1]]
                     popt, pcov = optimize.curve_fit(shift_spectrum, wlgrid_center, y_data,p0=[-0.001]*np.unique(datalabels).shape[0])
                     shift = np.array(popt)[np.unique(datalabels,return_inverse=True)[-1]]
+            elif offsetwl is not None:
+                wlcull = (xw >= np.min(offsetwl)) & (xw <= np.max(offsetwl))
+                shift = np.median(spectralref[wlcull]) - np.median(flux_in_bin[wlcull])
             else: 
                 shift = 0 
             if dof == 'ndata':
@@ -429,8 +432,8 @@ class GridFitter():
         #plt.rcParams['axes.prop_cycle'] = \
         #plt.cycler(color=["tomato", "dodgerblue", "gold", 'forestgreen', 'mediumorchid', 'lightblue'])
         plt.rcParams['figure.dpi'] = 600
-        colors=["xkcd:salmon", "dodgerblue", "sandybrown", 'cadetblue', 'orchid', 'lightblue', 'darkgreen', 'maroon']
-        linestyles = ['-','--','--','-.',(0, (3, 5, 1, 5)),(0, (3, 1, 1, 1)), (0, (5, 10)), (5, (10, 3))]
+        colors=["orange", "dodgerblue", "fuchsia", 'cadetblue', 'orchid', 'lightblue', 'darkgreen', 'maroon']
+        linestyles = ['-','--','dotted','-.',(0, (3, 5, 1, 5)),(0, (3, 1, 1, 1)), (0, (5, 10)), (5, (10, 3))]
         plt.rcParams["axes.prop_cycle"] = plt.cycler(color=colors) + plt.cycler(linestyle=linestyles)
 
         ax = fig.subplot_mosaic(x,gridspec_kw={
@@ -470,14 +473,15 @@ class GridFitter():
                 ax['A'].plot(wlgrid_center,best_fit,linewidth=linewidth,label=igrid.split(';')[-1]+r", ${\chi}_{\nu}^{2}="+ r'{:0.3f}$'.format(chi1),zorder=1000 if (idata.split(';')[0] == only_data) else 0)
                                
                 if datalabels is None:
-                    ax['B'].plot(wlgrid_center,resids,"o",markeredgecolor=rgb('k',1),markersize=12,linestyle='none',alpha=0.5)
+                    ax['B'].plot(wlgrid_center,resids,"o",markeredgecolor=rgb('k',1),markersize=12,linestyle='none',alpha=0.5,
+                                 color = ax['A']._get_lines._cycler_items[ax['A']._get_lines._idx-1]['color'])
                 else:
                     colorlist = []
                     for thislabel in np.unique(datalabels):
                         cull = datalabels == thislabel
                         color = ax['A']._get_lines.get_next_color()
                         colorlist.append(color)
-                        ax['B'].errorbar(wlgrid_center[cull],resids[cull],marker="o",markeredgecolor=rgb('k',1),color=rgb(color,0.5),markersize=12,label = thislabel, linestyle='none')
+                        ax['B'].errorbar(wlgrid_center[cull],resids[cull],marker="o",markeredgecolor=rgb('k',1),markersize=12,label = thislabel, linestyle='none')
                         
                 if ii==0:
                     ax['B'].plot(wlgrid_center,0*y_data,"k")
