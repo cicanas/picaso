@@ -154,7 +154,7 @@ class GridFitter():
         None 
             Creates self.overview, and self.grid_params
         """
-        possible_params = {'planet_params': ['rp','mp','tint', 'heat_redis','p_reference','logkzz','mh','co','p_quench','rainout','teff','logg','m_length','sratio'],
+        possible_params = {'planet_params': ['rp','mp','tint', 'heat_redis','p_reference','logkzz','mh','co','cto','p_quench','rainout','teff','logg','m_length','sratio'],
                            'stellar_params' : ['rs','logg','steff','feh','ms','fspot','tspot'],
                            'cld_params': ['opd','ssa','asy','p_cloud','haze_eff','fsed']}
 
