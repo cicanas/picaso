@@ -155,7 +155,7 @@ class GridFitter():
             Creates self.overview, and self.grid_params
         """
         possible_params = {'planet_params': ['rp','mp','tint', 'heat_redis','p_reference','logkzz','mh','co','cto','p_quench','rainout','teff','logg','m_length','sratio'],
-                           'stellar_params' : ['rs','logg','steff','feh','ms','fspot','tspot'],
+                           'stellar_params' : ['rs','logg','steff','feh','ms','fspot','tspot','loggspot','ffac','tfac','loggfac'],
                            'cld_params': ['opd','ssa','asy','p_cloud','haze_eff','fsed']}
 
         #define possible grid parameters
