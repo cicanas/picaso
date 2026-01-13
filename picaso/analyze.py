@@ -132,6 +132,8 @@ class GridFitter():
         'grid_params':self.grid_params, 
         'offsets': getattr(self, 'offsets',0), #,
         'chi_sqs': self.chi_sqs,
+        'aics': self.aics,
+        'bics': self.bics,
         'posteriors': self.posteriors
         }
 
@@ -289,6 +291,8 @@ class GridFitter():
 
         #get chi_sqrs if it already exists 
         self.chi_sqs =  getattr(self, 'chi_sqs',{grid_name: {data_name:np.zeros(shape=(nmodels))}})
+        self.aics =  getattr(self, 'aics',{grid_name: {data_name:np.zeros(shape=(nmodels))}})
+        self.bics =  getattr(self, 'bics',{grid_name: {data_name:np.zeros(shape=(nmodels))}})
         #get best fit dicts if it already exists 
         self.best_fits =  getattr(self, 'best_fits',{grid_name:{data_name:np.zeros(shape=(nmodels,len(wlgrid_center)))}})
         #get rank order  
@@ -300,12 +304,16 @@ class GridFitter():
 
         #make sure nothing exiting is overwritten 
         self.chi_sqs[grid_name] = self.chi_sqs.get(grid_name, {data_name:np.zeros(shape=(nmodels))})
+        self.aics[grid_name] = self.aics.get(grid_name, {data_name:np.zeros(shape=(nmodels))})
+        self.bics[grid_name] = self.bics.get(grid_name, {data_name:np.zeros(shape=(nmodels))})
         self.best_fits[grid_name] = self.best_fits.get(grid_name, {data_name:np.zeros(shape=(nmodels,len(wlgrid_center)))})
         self.rank[grid_name] = self.rank.get(grid_name, {data_name:np.zeros(shape=(nmodels))})
         self.posteriors[grid_name] = self.posteriors.get(grid_name, {data_name:{}})
 
         #make sure nothing existing is overwritten 
         self.chi_sqs[grid_name][data_name] = self.chi_sqs[grid_name].get(data_name, np.zeros(shape=(nmodels)))
+        self.aics[grid_name][data_name] = self.aics[grid_name].get(data_name, np.zeros(shape=(nmodels)))
+        self.bics[grid_name][data_name] = self.bics[grid_name].get(data_name, np.zeros(shape=(nmodels)))
         self.best_fits[grid_name][data_name]  = self.best_fits[grid_name].get(data_name,np.zeros(shape=(nmodels,len(wlgrid_center))))
         self.rank[grid_name][data_name]  = self.rank[grid_name].get(data_name,np.zeros(shape=(nmodels)))
         self.posteriors[grid_name][data_name]  = self.posteriors[grid_name].get(data_name,{})
@@ -349,6 +357,8 @@ class GridFitter():
                 numparams=0
             
             self.chi_sqs[grid_name][data_name][index]= chi_squared(y_data,e_data,flux_in_bin+shift,numparams)
+            self.bics[grid_name][data_name][index]= bic(y_data,e_data,flux_in_bin+shift,numparams)
+            self.aics[grid_name][data_name][index]= aic(y_data,e_data,flux_in_bin+shift,numparams)
 
             self.best_fits[grid_name][data_name][index,:] = flux_in_bin+shift
             if offset:
@@ -1320,6 +1330,36 @@ def chi_squared(data,data_err,model,numparams):
     return chi_squared
 
 
+
+def bic(data,data_err,model,numparams):
+    """
+    Compute BIC
+    """
+    logl = gaussian_log_likelihood(data,model,data_err)
+    value = numparams * np.log(len(data)) - 2 * logl
+    
+    return value
+
+
+
+
+def aic(data,data_err,model,numparams):
+    """
+    Compute reduced chi squared assuming DOF = ndata_pts - num parameters  
+    """
+    logl = gaussian_log_likelihood(data,model,data_err)
+    value = 2 * numparams - 2 * logl
+    
+    return value
+
+
+
+# Define gaussian log-likelihood:
+def gaussian_log_likelihood(data,model,data_err):
+    log2pi = np.log(2.*np.pi)
+    residuals = data - model
+    taus = 1./(data_err**2)
+    return -0.5*(len(residuals)*log2pi+np.sum(np.log(1./taus)+taus*(residuals**2)))
 
 
 
