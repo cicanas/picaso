@@ -129,6 +129,8 @@ class GridFitter():
         'list_of_files':self.list_of_files, 
         'spectra_w_offset':self.best_fits,
         'rank_order':self.rank,
+        'rank_order_aic':self.rank_aic,
+        'rank_order_bic':self.rank_bic,
         'grid_params':self.grid_params, 
         'offsets': getattr(self, 'offsets',0), #,
         'chi_sqs': self.chi_sqs,
@@ -297,6 +299,8 @@ class GridFitter():
         self.best_fits =  getattr(self, 'best_fits',{grid_name:{data_name:np.zeros(shape=(nmodels,len(wlgrid_center)))}})
         #get rank order  
         self.rank =  getattr(self, 'rank',{grid_name:{data_name:np.zeros(shape=(nmodels))}})
+        self.rank_aic =  getattr(self, 'rank_aic',{grid_name:{data_name:np.zeros(shape=(nmodels))}})
+        self.rank_bic =  getattr(self, 'rank_bic',{grid_name:{data_name:np.zeros(shape=(nmodels))}})
         
         #get posetiors
         self.posteriors =  getattr(self, 'posteriors',{grid_name:{data_name:{}}})
@@ -308,6 +312,8 @@ class GridFitter():
         self.bics[grid_name] = self.bics.get(grid_name, {data_name:np.zeros(shape=(nmodels))})
         self.best_fits[grid_name] = self.best_fits.get(grid_name, {data_name:np.zeros(shape=(nmodels,len(wlgrid_center)))})
         self.rank[grid_name] = self.rank.get(grid_name, {data_name:np.zeros(shape=(nmodels))})
+        self.rank_aic[grid_name] = self.rank_aic.get(grid_name, {data_name:np.zeros(shape=(nmodels))})
+        self.rank_bic[grid_name] = self.rank_bic.get(grid_name, {data_name:np.zeros(shape=(nmodels))})
         self.posteriors[grid_name] = self.posteriors.get(grid_name, {data_name:{}})
 
         #make sure nothing existing is overwritten 
@@ -316,6 +322,8 @@ class GridFitter():
         self.bics[grid_name][data_name] = self.bics[grid_name].get(data_name, np.zeros(shape=(nmodels)))
         self.best_fits[grid_name][data_name]  = self.best_fits[grid_name].get(data_name,np.zeros(shape=(nmodels,len(wlgrid_center))))
         self.rank[grid_name][data_name]  = self.rank[grid_name].get(data_name,np.zeros(shape=(nmodels)))
+        self.rank_aic[grid_name][data_name]  = self.rank_aic[grid_name].get(data_name,np.zeros(shape=(nmodels)))
+        self.rank_bic[grid_name][data_name]  = self.rank_bic[grid_name].get(data_name,np.zeros(shape=(nmodels)))
         self.posteriors[grid_name][data_name]  = self.posteriors[grid_name].get(data_name,{})
 
         if offset: 
@@ -365,6 +373,8 @@ class GridFitter():
                 self.offsets[grid_name][data_name][index] = shift
 
         self.rank[grid_name][data_name] = self.chi_sqs[grid_name][data_name].argsort()
+        self.rank_aic[grid_name][data_name] = self.aics[grid_name][data_name].argsort()
+        self.rank_bic[grid_name][data_name] = self.bics[grid_name][data_name].argsort()
 
         #finally compute the posteriors 
         for iattr in self.grid_params[grid_name].keys(): 
