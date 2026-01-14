@@ -365,8 +365,8 @@ class GridFitter():
                 numparams=0
             
             self.chi_sqs[grid_name][data_name][index]= chi_squared(y_data,e_data,flux_in_bin+shift,numparams)
-            self.bics[grid_name][data_name][index]= bic(y_data,e_data,flux_in_bin+shift,numparams)
-            self.aics[grid_name][data_name][index]= aic(y_data,e_data,flux_in_bin+shift,numparams)
+            self.bics[grid_name][data_name][index]= bic(y_data,e_data,flux_in_bin+shift,self.overview[grid_name]['num_params'])
+            self.aics[grid_name][data_name][index]= aic(y_data,e_data,flux_in_bin+shift,self.overview[grid_name]['num_params'])
 
             self.best_fits[grid_name][data_name][index,:] = flux_in_bin+shift
             if offset:
