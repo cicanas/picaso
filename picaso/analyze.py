@@ -381,7 +381,7 @@ class GridFitter():
             for ikey in self.grid_params[grid_name][iattr].keys():
                 self.posteriors[grid_name][data_name][ikey] = self.get_chi_posteriors(grid_name, data_name, ikey)
     
-    def print_best_fit(self, grid_name, data_name, verbose=True): 
+    def print_best_fit(self, grid_name, data_name, metric = 'chi_sq', verbose=True): 
         """
         Print out table of best fit parameters 
 
@@ -395,7 +395,12 @@ class GridFitter():
         best_fits = {}
         for iattr in self.grid_params[grid_name].keys(): 
             for ikey in self.grid_params[grid_name][iattr].keys():
-                single_best_fit = self.grid_params[grid_name][iattr][ikey][self.rank[grid_name][data_name]][0]
+                if metric == 'aic':
+                    single_best_fit = self.grid_params[grid_name][iattr][ikey][self.rank_aic[grid_name][data_name]][0]
+                elif metric == 'bic':
+                    single_best_fit = self.grid_params[grid_name][iattr][ikey][self.rank_bic[grid_name][data_name]][0]
+                else:
+                    single_best_fit = self.grid_params[grid_name][iattr][ikey][self.rank[grid_name][data_name]][0]
                 if verbose: print(f'{ikey}={single_best_fit}')
                 best_fits[ikey] = single_best_fit
         return best_fits
@@ -1349,7 +1354,6 @@ def bic(data,data_err,model,numparams):
     value = numparams * np.log(len(data)) - 2 * logl
     
     return value
-
 
 
 
