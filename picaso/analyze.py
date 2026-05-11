@@ -207,7 +207,10 @@ class GridFitter():
             # grid parameters
             for iattr in possible_params.keys():#loops through e.g. planet_params, stellar_params,  
                 if iattr in ds.attrs:
-                    attr_dict = json.loads(ds.attrs[iattr])
+                    try:
+                        attr_dict = json.loads(ds.attrs[iattr])
+                    except:
+                        attr_dict = json.loads(ds.attrs[iattr].replace("'",'"'))
                     for ikey in possible_params[iattr]:
 
                         self.grid_params[grid_name][iattr][ikey] = np.append(
