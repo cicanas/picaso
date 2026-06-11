@@ -408,7 +408,8 @@ class GridFitter():
                 best_fits[ikey] = single_best_fit
         return best_fits
 
-    def plot_best_fit(self, grid_names, data_names, plot_kwargs={}, datalabels = None, multiplier = 1,fig = None, ptfile = None,linewidth = 1, only_data = None): 
+    def plot_best_fit(self, grid_names, data_names, plot_kwargs={}, datalabels = None, multiplier = 1,msize=7,
+                      resid_height = 0.3, resid_alpha=0.6, fig = None, ptfile = None,linewidth = 1, only_data = None): 
         """
         
         Parameters
@@ -429,7 +430,7 @@ class GridFitter():
             ..
             BB
             '''
-            figheights = [1,0.00001,0.2]
+            figheights = [1,0.00001,resid_height]
             figwidths = [1,1]
         else:           
             x='''
@@ -460,7 +461,7 @@ class GridFitter():
         #plt.rcParams['axes.prop_cycle'] = \
         #plt.cycler(color=["tomato", "dodgerblue", "gold", 'forestgreen', 'mediumorchid', 'lightblue'])
         plt.rcParams['figure.dpi'] = 600
-        colors=["orange", "dodgerblue", "fuchsia", 'cadetblue', 'orchid', 'lightblue', 'darkgreen', 'maroon']
+        colors=["darkorange", "royalblue", "fuchsia", 'cadetblue', 'orchid', 'lightblue', 'darkgreen', 'maroon']
         linestyles = ['-','--','dotted','-.',(0, (3, 5, 1, 5)),(0, (3, 1, 1, 1)), (0, (5, 10)), (5, (10, 3))]
         plt.rcParams["axes.prop_cycle"] = plt.cycler(color=colors) + plt.cycler(linestyle=linestyles)
 
@@ -501,7 +502,7 @@ class GridFitter():
                 ax['A'].plot(wlgrid_center,best_fit,linewidth=linewidth,label=igrid.split(';')[-1]+r", ${\chi}_{\nu}^{2}="+ r'{:0.3f}$'.format(chi1),zorder=1000 if (idata.split(';')[0] == only_data) else 0)
                                
                 if datalabels is None:
-                    ax['B'].plot(wlgrid_center,resids,"o",markeredgecolor=rgb('k',1),markersize=12,linestyle='none',alpha=0.5,
+                    ax['B'].plot(wlgrid_center,resids,"o",markeredgecolor=rgb('k',1),markersize=msize,linestyle='none',alpha=resid_alpha,
                                  color = ax['A']._get_lines._cycler_items[ax['A']._get_lines._idx-1]['color'])
                 else:
                     colorlist = []
@@ -509,7 +510,7 @@ class GridFitter():
                         cull = datalabels == thislabel
                         color = ax['A']._get_lines.get_next_color()
                         colorlist.append(color)
-                        ax['B'].errorbar(wlgrid_center[cull],resids[cull],marker="o",markeredgecolor=rgb('k',1),markersize=12,label = thislabel, linestyle='none')
+                        ax['B'].errorbar(wlgrid_center[cull],resids[cull],marker="o",markeredgecolor=rgb('k',1),markersize=msize,label = thislabel, linestyle='none')
                         
                 if ii==0:
                     ax['B'].plot(wlgrid_center,0*y_data,"k")
@@ -523,13 +524,13 @@ class GridFitter():
             if datalabels is None:
                 if only_data is not None:
                     if (idata.split(';')[0] == only_data):
-                        ax['A'].errorbar(wlgrid_center,y_data,yerr=e_data,fmt="o",color=rgb('k',0.5),markersize=12,markeredgecolor=rgb('k',1),linestyle='none')
+                        ax['A'].errorbar(wlgrid_center,y_data,yerr=e_data,fmt="o",color=rgb('k',0.5),markersize=msize,markeredgecolor=rgb('k',1),linestyle='none')
                 else:
-                    ax['A'].errorbar(wlgrid_center,y_data,yerr=e_data,fmt="o",color=rgb(Cividis[7][i],0.5),markersize=12,markeredgecolor=rgb('k',1),linestyle='none')
+                    ax['A'].errorbar(wlgrid_center,y_data,yerr=e_data,fmt="o",color=rgb(Cividis[7][i],0.5),markersize=msize,markeredgecolor=rgb('k',1),linestyle='none')
             else:
                 for thisindex, thislabel in enumerate(np.unique(datalabels)):
                     cull = datalabels == thislabel
-                    ax['A'].errorbar(wlgrid_center[cull],y_data[cull],yerr=e_data[cull],marker="o",color=rgb(colorlist[thisindex],0.5),markeredgecolor=rgb('k',1),label=thislabel,markersize=12,linestyle='none')
+                    ax['A'].errorbar(wlgrid_center[cull],y_data[cull],yerr=e_data[cull],marker="o",color=rgb(colorlist[thisindex],0.5),markeredgecolor=rgb('k',1),label=thislabel,markersize=msize,linestyle='none')
 
         
         ax['B'].set_xlabel(plot_kwargs.get('xlabel',r"wavelength [$\mu$m]"),fontsize=20)
