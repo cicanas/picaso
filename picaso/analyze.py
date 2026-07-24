@@ -134,6 +134,7 @@ class GridFitter():
         'grid_params':self.grid_params, 
         'offsets': getattr(self, 'offsets',0), #,
         'chi_sqs': self.chi_sqs,
+        'lnzs': self.lnzs,
         'aics': self.aics,
         'bics': self.bics,
         'posteriors': self.posteriors
@@ -296,6 +297,7 @@ class GridFitter():
 
         #get chi_sqrs if it already exists 
         self.chi_sqs =  getattr(self, 'chi_sqs',{grid_name: {data_name:np.zeros(shape=(nmodels))}})
+        self.lnzs =  getattr(self, 'lnzs',{grid_name: {data_name:np.zeros(shape=(nmodels))}})
         self.aics =  getattr(self, 'aics',{grid_name: {data_name:np.zeros(shape=(nmodels))}})
         self.bics =  getattr(self, 'bics',{grid_name: {data_name:np.zeros(shape=(nmodels))}})
         #get best fit dicts if it already exists 
@@ -311,6 +313,7 @@ class GridFitter():
 
         #make sure nothing exiting is overwritten 
         self.chi_sqs[grid_name] = self.chi_sqs.get(grid_name, {data_name:np.zeros(shape=(nmodels))})
+        self.lnzs[grid_name] = self.lnzs.get(grid_name, {data_name:np.zeros(shape=(nmodels))})
         self.aics[grid_name] = self.aics.get(grid_name, {data_name:np.zeros(shape=(nmodels))})
         self.bics[grid_name] = self.bics.get(grid_name, {data_name:np.zeros(shape=(nmodels))})
         self.best_fits[grid_name] = self.best_fits.get(grid_name, {data_name:np.zeros(shape=(nmodels,len(wlgrid_center)))})
@@ -321,6 +324,7 @@ class GridFitter():
 
         #make sure nothing existing is overwritten 
         self.chi_sqs[grid_name][data_name] = self.chi_sqs[grid_name].get(data_name, np.zeros(shape=(nmodels)))
+        self.lnzs[grid_name][data_name] = self.lnzs[grid_name].get(data_name, np.zeros(shape=(nmodels)))
         self.aics[grid_name][data_name] = self.aics[grid_name].get(data_name, np.zeros(shape=(nmodels)))
         self.bics[grid_name][data_name] = self.bics[grid_name].get(data_name, np.zeros(shape=(nmodels)))
         self.best_fits[grid_name][data_name]  = self.best_fits[grid_name].get(data_name,np.zeros(shape=(nmodels,len(wlgrid_center))))
@@ -368,6 +372,7 @@ class GridFitter():
                 numparams=0
             
             self.chi_sqs[grid_name][data_name][index]= chi_squared(y_data,e_data,flux_in_bin+shift,numparams)
+            self.lnzs[grid_name][data_name][index]= gaussian_log_likelihood(data = y_data, data_err = e_data, model = flux_in_bin+shift)
             self.bics[grid_name][data_name][index]= bic(y_data,e_data,flux_in_bin+shift,self.overview[grid_name]['num_params'])
             self.aics[grid_name][data_name][index]= aic(y_data,e_data,flux_in_bin+shift,self.overview[grid_name]['num_params'])
 
